@@ -112,82 +112,46 @@ export class ProcessService {
     try {
       logger.debug(`Adicionando marcador: ${marcador}`);
 
-      console.log('\n========== DEBUG: CLIQUE EM GERENCIAR MARCADOR ==========');
-      const totalStart = Date.now();
-
       // Botão "Gerenciar Marcador" está no frame ifrConteudoVisualizacao
       const linkSelector = 'a[href*="andamento_marcador_gerenciar"]';
       let linkClicked = false;
 
       // Buscar diretamente no frame ifrConteudoVisualizacao
-      console.log('[1] Buscando frame ifrConteudoVisualizacao...');
-      const frameStart = Date.now();
       const buttonFrame = this.page.frame({ name: 'ifrConteudoVisualizacao' });
-      console.log(`[1] Tempo para obter frame: ${Date.now() - frameStart}ms`);
 
       if (buttonFrame) {
-        console.log('[2] Frame encontrado! Procurando botão...');
-
         try {
-          const countStart = Date.now();
           const linkCount = await buttonFrame.locator(linkSelector).count();
-          console.log(`[2] Tempo para contar elementos: ${Date.now() - countStart}ms`);
-          console.log(`[2] Elementos encontrados: ${linkCount}`);
 
           if (linkCount > 0) {
             logger.debug('Botão "Gerenciar Marcador" encontrado');
-
-            console.log('[3] Elemento encontrado! Tentando clicar...');
-            const clickStart = Date.now();
             await buttonFrame.click(linkSelector);
-            console.log(`[3] *** TEMPO DO CLIQUE: ${Date.now() - clickStart}ms ***`);
-
             linkClicked = true;
-          } else {
-            console.log('[2] PROBLEMA: Nenhum elemento encontrado no frame correto!');
           }
         } catch (e) {
-          console.log(`[ERRO] Erro ao buscar/clicar botão: ${e}`);
           logger.debug('Erro ao buscar botão, tentando fallback');
         }
-      } else {
-        console.log('[1] PROBLEMA: Frame ifrConteudoVisualizacao NÃO encontrado!');
       }
 
       // Fallback: se não encontrou, busca em todos os frames
       if (!linkClicked) {
-        console.log('\n[FALLBACK] Buscando em todos os frames...');
-        const fallbackStart = Date.now();
+        logger.debug('Botão não encontrado em ifrConteudoVisualizacao, buscando em todos os frames');
         const frames = this.page.frames();
-        console.log(`[FALLBACK] Total de frames: ${frames.length}`);
 
-        for (let i = 0; i < frames.length; i++) {
-          const frame = frames[i];
+        for (const frame of frames) {
           try {
-            const frameName = await frame.name();
-            console.log(`  Frame ${i} (${frameName || 'sem nome'}): buscando...`);
-
-            const countStart = Date.now();
             const linkCount = await frame.locator(linkSelector).count();
-            console.log(`    Tempo: ${Date.now() - countStart}ms, Encontrados: ${linkCount}`);
 
             if (linkCount > 0) {
-              console.log(`    ✓ ENCONTRADO! Clicando...`);
-              const clickStart = Date.now();
               await frame.click(linkSelector);
-              console.log(`    *** TEMPO DO CLIQUE: ${Date.now() - clickStart}ms ***`);
               linkClicked = true;
               break;
             }
           } catch (e) {
-            console.log(`    Erro: ${e}`);
+            // Continue para próximo frame
           }
         }
-        console.log(`[FALLBACK] Tempo total do fallback: ${Date.now() - fallbackStart}ms`);
       }
-
-      console.log(`\n*** TEMPO TOTAL (Gerenciar Marcador): ${Date.now() - totalStart}ms ***`);
-      console.log('=========================================================\n');
 
       if (!linkClicked) {
         await this.browserService.screenshot('gerenciar-marcador-not-found');

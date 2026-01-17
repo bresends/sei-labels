@@ -50,14 +50,11 @@ export class AuthService {
       if (hasOrgaoField) {
         logger.debug('Selecionando órgão');
         await this.page.selectOption(orgaoSelector, { label: this.config.sei.orgao });
-        await this.page.waitForTimeout(500);
       }
 
       logger.debug('Preenchendo credenciais');
       await this.page.fill(this.selectors.login.usernameField, this.config.sei.username);
-      await this.page.waitForTimeout(300);
       await this.page.fill(this.selectors.login.passwordField, this.config.sei.password);
-      await this.page.waitForTimeout(300);
 
       logger.debug('Tentando submeter o formulário');
 
@@ -81,8 +78,6 @@ export class AuthService {
       } catch (navError) {
         logger.warn('Timeout na navegação, verificando se login foi bem-sucedido mesmo assim');
       }
-
-      await this.page.waitForTimeout(2000);
 
       const isAuthenticated = await this.isAuthenticated();
 
