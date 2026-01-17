@@ -39,8 +39,8 @@ export class InputService {
     const marcador = await select({
       message: 'Selecione o marcador da seção:',
       choices: [
-        { name: 'SAD', value: 'SAD' },
         { name: 'SGP', value: 'SGP' },
+        { name: 'SAD', value: 'SAD' },
         { name: 'SIQ', value: 'SIQ' },
         { name: 'SOP', value: 'SOP' },
       ],

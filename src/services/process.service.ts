@@ -29,9 +29,6 @@ export class ProcessService {
 
       await this.navigateToProcess(processNumber);
 
-      await this.page.waitForLoadState('networkidle');
-      await this.page.waitForTimeout(2000);
-
       const hasMarcador = await this.processHasMarcador(marcador);
       if (hasMarcador) {
         processInfo.status = 'skipped';
@@ -75,8 +72,17 @@ export class ProcessService {
 
       await this.page.waitForLoadState('networkidle');
 
-      logger.debug('Aguardando página do processo carregar');
-      await this.page.waitForTimeout(4000);
+      logger.debug('Aguardando frames da página do processo carregarem');
+      // Esperar o frame ifrConteudoVisualizacao estar pronto (onde está o botão Gerenciar Marcador)
+      try {
+        await this.page.waitForFunction(() => {
+          const frame = window.frames['ifrConteudoVisualizacao' as any];
+          return frame !== undefined;
+        }, { timeout: 5000 });
+        logger.debug('Frame ifrConteudoVisualizacao carregado');
+      } catch (e) {
+        logger.warn('Timeout aguardando frame, mas continuando');
+      }
 
       logger.debug(`Navegação para processo ${processNumber} concluída`);
     } catch (error) {
@@ -106,131 +112,173 @@ export class ProcessService {
     try {
       logger.debug(`Adicionando marcador: ${marcador}`);
 
-      logger.debug('Procurando botão "Gerenciar Marcador" em todos os frames');
+      console.log('\n========== DEBUG: CLIQUE EM GERENCIAR MARCADOR ==========');
+      const totalStart = Date.now();
 
+      // Botão "Gerenciar Marcador" está no frame ifrConteudoVisualizacao
+      const linkSelector = 'a[href*="andamento_marcador_gerenciar"]';
       let linkClicked = false;
 
-      const frames = this.page.frames();
-      logger.debug(`Total de frames encontrados: ${frames.length}`);
+      // Buscar diretamente no frame ifrConteudoVisualizacao
+      console.log('[1] Buscando frame ifrConteudoVisualizacao...');
+      const frameStart = Date.now();
+      const buttonFrame = this.page.frame({ name: 'ifrConteudoVisualizacao' });
+      console.log(`[1] Tempo para obter frame: ${Date.now() - frameStart}ms`);
 
-      for (const frame of frames) {
+      if (buttonFrame) {
+        console.log('[2] Frame encontrado! Procurando botão...');
+
         try {
-          const frameName = await frame.name();
-          logger.debug(`Procurando no frame: ${frameName || 'main'}`);
-
-          const linkSelector = 'a[href*="andamento_marcador_gerenciar"]';
-          const linkCount = await frame.locator(linkSelector).count();
+          const countStart = Date.now();
+          const linkCount = await buttonFrame.locator(linkSelector).count();
+          console.log(`[2] Tempo para contar elementos: ${Date.now() - countStart}ms`);
+          console.log(`[2] Elementos encontrados: ${linkCount}`);
 
           if (linkCount > 0) {
-            logger.debug(`Botão "Gerenciar Marcador" encontrado no frame: ${frameName || 'main'}`);
-            await frame.click(linkSelector);
+            logger.debug('Botão "Gerenciar Marcador" encontrado');
+
+            console.log('[3] Elemento encontrado! Tentando clicar...');
+            const clickStart = Date.now();
+            await buttonFrame.click(linkSelector);
+            console.log(`[3] *** TEMPO DO CLIQUE: ${Date.now() - clickStart}ms ***`);
+
             linkClicked = true;
-            logger.debug('Botão clicado com sucesso');
-            break;
+          } else {
+            console.log('[2] PROBLEMA: Nenhum elemento encontrado no frame correto!');
           }
         } catch (e) {
-          logger.debug(`Erro ao procurar no frame: ${e}`);
+          console.log(`[ERRO] Erro ao buscar/clicar botão: ${e}`);
+          logger.debug('Erro ao buscar botão, tentando fallback');
         }
+      } else {
+        console.log('[1] PROBLEMA: Frame ifrConteudoVisualizacao NÃO encontrado!');
       }
+
+      // Fallback: se não encontrou, busca em todos os frames
+      if (!linkClicked) {
+        console.log('\n[FALLBACK] Buscando em todos os frames...');
+        const fallbackStart = Date.now();
+        const frames = this.page.frames();
+        console.log(`[FALLBACK] Total de frames: ${frames.length}`);
+
+        for (let i = 0; i < frames.length; i++) {
+          const frame = frames[i];
+          try {
+            const frameName = await frame.name();
+            console.log(`  Frame ${i} (${frameName || 'sem nome'}): buscando...`);
+
+            const countStart = Date.now();
+            const linkCount = await frame.locator(linkSelector).count();
+            console.log(`    Tempo: ${Date.now() - countStart}ms, Encontrados: ${linkCount}`);
+
+            if (linkCount > 0) {
+              console.log(`    ✓ ENCONTRADO! Clicando...`);
+              const clickStart = Date.now();
+              await frame.click(linkSelector);
+              console.log(`    *** TEMPO DO CLIQUE: ${Date.now() - clickStart}ms ***`);
+              linkClicked = true;
+              break;
+            }
+          } catch (e) {
+            console.log(`    Erro: ${e}`);
+          }
+        }
+        console.log(`[FALLBACK] Tempo total do fallback: ${Date.now() - fallbackStart}ms`);
+      }
+
+      console.log(`\n*** TEMPO TOTAL (Gerenciar Marcador): ${Date.now() - totalStart}ms ***`);
+      console.log('=========================================================\n');
 
       if (!linkClicked) {
         await this.browserService.screenshot('gerenciar-marcador-not-found');
         throw new Error('Botão "Gerenciar Marcador" não encontrado em nenhum frame');
       }
 
-      await this.page.waitForTimeout(3000);
+      // Formulário está no frame ifrVisualizacao
+      logger.debug('Aguardando formulário de marcador aparecer');
 
-      logger.debug('Procurando formulário de marcador em todos os frames');
-
-      let formFrame = null;
-      const allFrames = this.page.frames();
-
-      for (const frame of allFrames) {
-        try {
-          const frameName = await frame.name();
-          logger.debug(`Verificando frame: ${frameName || 'main'}`);
-
-          const dropdownExists = await frame.locator('#selMarcador').count();
-          if (dropdownExists > 0) {
-            logger.debug(`Formulário de marcador encontrado no frame: ${frameName || 'main'}`);
-            formFrame = frame;
-            break;
-          }
-        } catch (e) {
-          logger.debug(`Erro ao verificar frame: ${e}`);
-        }
-      }
+      const formSelector = '#selMarcador';
+      const formFrame = this.page.frame({ name: 'ifrVisualizacao' });
 
       if (!formFrame) {
-        await this.browserService.screenshot('form-marcador-not-found');
-        throw new Error('Formulário de marcador não encontrado em nenhum frame');
+        await this.browserService.screenshot('form-frame-not-found');
+        throw new Error('Frame ifrVisualizacao não encontrado');
       }
 
-      logger.debug('Aguardando dropdown customizado de marcador estar visível');
+      // Aguardar formulário aparecer no frame correto
+      try {
+        await formFrame.waitForSelector(formSelector, { timeout: 5000 });
+        logger.debug('Formulário de marcador encontrado');
+      } catch (e) {
+        await this.browserService.screenshot('form-marcador-not-found');
+        throw new Error('Formulário de marcador não encontrado no frame ifrVisualizacao');
+      }
 
-      logger.debug('Clicando no dropdown customizado para abrir as opções');
-      await formFrame.locator('.dd-select').click();
-      await this.page.waitForTimeout(500);
+      logger.debug('Interagindo com dropdown de marcadores');
+      const dropdownSelector = '.dd-select';
 
-      logger.debug(`Procurando opção do marcador: ${marcador}`);
+      await formFrame.waitForSelector(dropdownSelector, { state: 'visible', timeout: 3000 });
+      await formFrame.locator(dropdownSelector).click();
+
       const optionSelector = `.dd-option:has-text("${marcador}")`;
-      const optionCount = await formFrame.locator(optionSelector).count();
+      await formFrame.waitForSelector('.dd-option', { state: 'visible', timeout: 3000 });
 
+      const optionCount = await formFrame.locator(optionSelector).count();
       if (optionCount === 0) {
         throw new Error(`Marcador "${marcador}" não encontrado nas opções do dropdown`);
       }
 
-      logger.debug(`Clicando na opção: ${marcador}`);
       await formFrame.locator(optionSelector).first().click();
 
-      await this.page.waitForTimeout(500);
-
-      logger.debug('Preenchendo campo de texto com "notion"');
+      logger.debug('Preenchendo campo de texto');
       const textoSelector = this.selectors.process.textoMarcador;
-      const textoCount = await formFrame.locator(textoSelector).count();
 
-      if (textoCount > 0) {
+      try {
+        await formFrame.waitForSelector(textoSelector, { timeout: 2000 });
         await formFrame.locator(textoSelector).fill('notion');
-        logger.debug('Campo de texto preenchido com "notion"');
-      } else {
+      } catch (e) {
         logger.warn('Campo de texto não encontrado, continuando sem preencher');
       }
 
-      await this.page.waitForTimeout(500);
+      logger.debug('Salvando marcador');
+      const salvarButtonSelector = '#sbmSalvar';
 
-      logger.debug('Clicando no botão Salvar');
-      const salvarButtonSelectors = [
-        '#sbmSalvar',
-        '#btnSalvar',
-        'button:has-text("Salvar")',
-        'input[type="button"][value="Salvar"]',
-        'a:has-text("Salvar")',
-      ];
+      try {
+        await formFrame.waitForSelector(salvarButtonSelector, { state: 'visible', timeout: 3000 });
+        await formFrame.locator(salvarButtonSelector).click();
+      } catch (e) {
+        // Fallback: tentar outros seletores
+        logger.debug('Tentando seletores alternativos para botão Salvar');
+        const salvarButtonSelectors = [
+          '#btnSalvar',
+          'button:has-text("Salvar")',
+          'input[type="button"][value="Salvar"]',
+          'a:has-text("Salvar")',
+        ];
 
-      let salvarClicked = false;
-      for (const selector of salvarButtonSelectors) {
-        try {
-          const count = await formFrame.locator(selector).count();
-          logger.debug(`Tentando seletor do botão Salvar: ${selector} - ${count} encontrados`);
-
-          if (count > 0) {
-            await formFrame.locator(selector).click();
-            salvarClicked = true;
-            logger.debug(`Botão Salvar clicado usando: ${selector}`);
-            break;
+        let salvarClicked = false;
+        for (const selector of salvarButtonSelectors) {
+          try {
+            const count = await formFrame.locator(selector).count();
+            if (count > 0) {
+              await formFrame.locator(selector).click();
+              salvarClicked = true;
+              break;
+            }
+          } catch (err) {
+            // Continue para próximo seletor
           }
-        } catch (e) {
-          logger.debug(`Erro ao tentar seletor ${selector}: ${e}`);
+        }
+
+        if (!salvarClicked) {
+          await this.browserService.screenshot('salvar-button-not-found');
+          throw new Error('Botão Salvar não encontrado com nenhum seletor');
         }
       }
 
-      if (!salvarClicked) {
-        await this.browserService.screenshot('salvar-button-not-found');
-        throw new Error('Botão Salvar não encontrado com nenhum seletor');
-      }
-
-      logger.debug('Aguardando página recarregar após salvar');
-      await this.page.waitForTimeout(3000);
+      await this.page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {
+        logger.debug('Timeout no networkidle, mas continuando');
+      });
 
       logger.debug('Verificando se marcador foi adicionado');
       const marcadorAdded = await this.processHasMarcador(marcador);
