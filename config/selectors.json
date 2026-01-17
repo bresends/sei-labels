@@ -1,0 +1,25 @@
+{
+  "login": {
+    "usernameField": "#txtUsuario",
+    "passwordField": "#pwdSenha",
+    "submitButton": "#sbmAcessar",
+    "errorMessage": ".infraMensagem"
+  },
+  "process": {
+    "searchField": "#txtPesquisaRapida",
+    "searchButton": "#sbmPesquisar",
+    "gerenciarMarcadorButton": "a[title='Gerenciar Marcador']",
+    "marcadorSelect": "#selMarcador",
+    "marcadorDropdown": ".dd-select",
+    "marcadorOption": ".dd-option",
+    "textoMarcador": "#txaTexto",
+    "salvarButton": "#sbmSalvar",
+    "voltarButton": "#btnVoltar",
+    "tagList": ".marcador",
+    "notFoundMessage": ".mensagem-erro"
+  },
+  "frames": {
+    "main": "iframe[name='ifrVisualizacao']",
+    "tree": "iframe[name='ifrArvore']"
+  }
+}
