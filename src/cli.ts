@@ -44,7 +44,7 @@ export async function cli(options: CLIOptions = {}): Promise<void> {
     spinner.succeed('Browser inicializado');
 
     spinner.start('Autenticando no SEI...');
-    const authService = new AuthService(page, config, selectors);
+    const authService = new AuthService(page, config, selectors, browserService);
     const authenticated = await authService.login();
 
     if (!authenticated) {

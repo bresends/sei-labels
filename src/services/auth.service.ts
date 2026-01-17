@@ -1,20 +1,43 @@
 import { Page } from 'playwright';
 import { AppConfig, Selectors } from '../models/config';
 import { logger } from './logger.service';
+import { BrowserService } from './browser.service';
 
 export class AuthService {
   private page: Page;
   private config: AppConfig;
   private selectors: Selectors;
+  private browserService: BrowserService;
 
-  constructor(page: Page, config: AppConfig, selectors: Selectors) {
+  constructor(page: Page, config: AppConfig, selectors: Selectors, browserService: BrowserService) {
     this.page = page;
     this.config = config;
     this.selectors = selectors;
+    this.browserService = browserService;
   }
 
   async login(): Promise<boolean> {
     try {
+      // Tentar usar cookies salvos primeiro
+      const cookiesLoaded = await this.browserService.loadCookies();
+
+      if (cookiesLoaded) {
+        logger.info('Cookies encontrados, tentando autenticação via cookies');
+        await this.page.goto(this.config.sei.baseUrl, { waitUntil: 'domcontentloaded' });
+        await this.page.waitForLoadState('networkidle', { timeout: 10000 });
+
+        const isAuthenticated = await this.isAuthenticated();
+
+        if (isAuthenticated) {
+          logger.success('Autenticado com sucesso usando cookies salvos');
+          return true;
+        } else {
+          logger.info('Cookies expirados ou inválidos, realizando login manual');
+        }
+      } else {
+        logger.info('Nenhum cookie salvo encontrado, realizando login manual');
+      }
+
       logger.info('Navegando para página de login do SEI');
       await this.page.goto(this.config.sei.baseUrl, { waitUntil: 'domcontentloaded' });
 
@@ -65,6 +88,11 @@ export class AuthService {
 
       if (isAuthenticated) {
         logger.success('Login realizado com sucesso');
+
+        // Salvar cookies para sessões futuras
+        await this.browserService.saveCookies();
+        logger.info('Cookies salvos para próximas sessões');
+
         return true;
       } else {
         logger.error('Falha no login: não foi possível verificar autenticação');

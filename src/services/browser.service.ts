@@ -149,4 +149,52 @@ export class BrowserService {
   getPage(): Page | null {
     return this.page;
   }
+
+  async saveCookies(): Promise<void> {
+    if (!this.context) {
+      logger.warn('Cannot save cookies: no browser context available');
+      return;
+    }
+
+    try {
+      const cookiesDir = path.join(process.cwd(), '.cache');
+      if (!fs.existsSync(cookiesDir)) {
+        fs.mkdirSync(cookiesDir, { recursive: true });
+      }
+
+      const cookiesPath = path.join(cookiesDir, 'sei-cookies.json');
+      const cookies = await this.context.cookies();
+
+      fs.writeFileSync(cookiesPath, JSON.stringify(cookies, null, 2));
+      logger.debug('Cookies saved successfully');
+    } catch (error) {
+      logger.error('Failed to save cookies', { error });
+    }
+  }
+
+  async loadCookies(): Promise<boolean> {
+    if (!this.context) {
+      logger.warn('Cannot load cookies: no browser context available');
+      return false;
+    }
+
+    try {
+      const cookiesPath = path.join(process.cwd(), '.cache', 'sei-cookies.json');
+
+      if (!fs.existsSync(cookiesPath)) {
+        logger.debug('No saved cookies found');
+        return false;
+      }
+
+      const cookiesContent = fs.readFileSync(cookiesPath, 'utf-8');
+      const cookies = JSON.parse(cookiesContent);
+
+      await this.context.addCookies(cookies);
+      logger.debug('Cookies loaded successfully');
+      return true;
+    } catch (error) {
+      logger.error('Failed to load cookies', { error });
+      return false;
+    }
+  }
 }
