@@ -72,13 +72,10 @@ export class ProcessService {
 
       await this.page.waitForLoadState('networkidle');
 
-      logger.debug('Aguardando frames da página do processo carregarem');
-      // Esperar o frame ifrConteudoVisualizacao estar pronto (onde está o botão Gerenciar Marcador)
+      logger.debug('Aguardando frame ifrConteudoVisualizacao carregar');
+      // Esperar o frame ifrConteudoVisualizacao estar pronto
       try {
-        await this.page.waitForFunction(() => {
-          const frame = window.frames['ifrConteudoVisualizacao' as any];
-          return frame !== undefined;
-        }, { timeout: 5000 });
+        await this.page.frameLocator('iframe[name="ifrConteudoVisualizacao"]').locator('body').waitFor({ timeout: 5000 });
         logger.debug('Frame ifrConteudoVisualizacao carregado');
       } catch (e) {
         logger.warn('Timeout aguardando frame, mas continuando');
