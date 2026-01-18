@@ -37,11 +37,16 @@ export interface ProcessSelectors {
   searchButton: string;
   gerenciarMarcadorButton: string;
   marcadorSelect: string;
+  marcadorDropdown: string;
+  marcadorOption: string;
   textoMarcador: string;
   salvarButton: string;
   voltarButton: string;
   tagList: string;
   notFoundMessage: string;
+  atribuirProcessoButton: string;
+  atribuicaoSelect: string;
+  atribuicaoSalvarButton: string;
 }
 
 export interface FrameSelectors {

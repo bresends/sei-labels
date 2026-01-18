@@ -40,6 +40,18 @@ export class ProcessService {
       const success = await this.addMarcador(marcador);
 
       if (success) {
+        // Se o marcador for SGP, atribuir ao usuário brunoresende
+        if (marcador.toUpperCase() === 'SGP') {
+          logger.info(`Processo ${processNumber}: atribuindo ao usuário brunoresende`);
+          const assigned = await this.assignProcess('brunoresende');
+
+          if (assigned) {
+            logger.success(`Processo ${processNumber}: atribuído com sucesso a brunoresende`);
+          } else {
+            logger.warn(`Processo ${processNumber}: falha ao atribuir, mas marcador foi adicionado`);
+          }
+        }
+
         processInfo.status = 'success';
         logger.success(`Processo ${processNumber}: marcador ${marcador} adicionado com sucesso`);
       } else {
@@ -261,6 +273,76 @@ export class ProcessService {
         stack: errorStack
       });
       await this.browserService.screenshot(`error-marcador-${Date.now()}`);
+      return false;
+    }
+  }
+
+  async assignProcess(username: string): Promise<boolean> {
+    try {
+      logger.debug(`Atribuindo processo ao usuário: ${username}`);
+
+      // Botão "Atribuir Processo" está no frame ifrConteudoVisualizacao
+      const buttonSelector = this.selectors.process.atribuirProcessoButton;
+      const buttonFrame = this.page.frame({ name: 'ifrConteudoVisualizacao' });
+
+      if (!buttonFrame) {
+        logger.error('Frame ifrConteudoVisualizacao não encontrado para atribuição');
+        return false;
+      }
+
+      // Clicar no botão "Atribuir Processo"
+      const buttonCount = await buttonFrame.locator(buttonSelector).count();
+      if (buttonCount === 0) {
+        logger.error('Botão "Atribuir Processo" não encontrado');
+        return false;
+      }
+
+      await buttonFrame.click(buttonSelector);
+      logger.debug('Botão "Atribuir Processo" clicado');
+
+      // Formulário aparece no frame ifrVisualizacao
+      const formFrame = this.page.frame({ name: 'ifrVisualizacao' });
+
+      if (!formFrame) {
+        logger.error('Frame ifrVisualizacao não encontrado');
+        return false;
+      }
+
+      // Aguardar o dropdown de atribuição aparecer
+      const selectSelector = this.selectors.process.atribuicaoSelect;
+      await formFrame.waitForSelector(selectSelector, { timeout: 5000 });
+      logger.debug('Dropdown de atribuição encontrado');
+
+      // Encontrar a opção que contém o username e pegar seu value
+      const optionLocator = formFrame.locator(`${selectSelector} option:has-text("${username}")`);
+      const optionValue = await optionLocator.getAttribute('value');
+
+      if (!optionValue) {
+        throw new Error(`Usuário ${username} não encontrado no dropdown de atribuição`);
+      }
+
+      // Selecionar o usuário pelo value
+      await formFrame.selectOption(selectSelector, optionValue);
+      logger.debug(`Usuário ${username} selecionado`);
+
+      // Clicar no botão Salvar
+      const saveButtonSelector = this.selectors.process.atribuicaoSalvarButton;
+      await formFrame.waitForSelector(saveButtonSelector, { state: 'visible', timeout: 3000 });
+      await formFrame.click(saveButtonSelector);
+      logger.debug('Botão Salvar clicado');
+
+      // Aguardar a página recarregar
+      await this.page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {
+        logger.debug('Timeout no networkidle após atribuição, mas continuando');
+      });
+
+      logger.success('Processo atribuído com sucesso');
+      return true;
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error('Erro ao atribuir processo', { error: errorMessage });
+      await this.browserService.screenshot(`error-atribuir-${Date.now()}`);
       return false;
     }
   }

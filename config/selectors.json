@@ -16,7 +16,10 @@
     "salvarButton": "#sbmSalvar",
     "voltarButton": "#btnVoltar",
     "tagList": ".marcador",
-    "notFoundMessage": ".mensagem-erro"
+    "notFoundMessage": ".mensagem-erro",
+    "atribuirProcessoButton": "a[href*='procedimento_atribuicao_cadastrar']",
+    "atribuicaoSelect": "#selAtribuicao",
+    "atribuicaoSalvarButton": "#sbmSalvar"
   },
   "frames": {
     "main": "iframe[name='ifrVisualizacao']",
