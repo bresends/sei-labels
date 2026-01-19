@@ -4,7 +4,6 @@ export interface AppConfig {
     username: string;
     password: string;
     orgao: string;
-    sectionTag: string;
   };
   browser: {
     timeout: number;

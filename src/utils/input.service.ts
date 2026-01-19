@@ -20,21 +20,6 @@ export class InputService {
     return processes;
   }
 
-  async confirmBaseUrl(defaultUrl: string): Promise<string> {
-    const url = await input({
-      message: 'URL base do SEI:',
-      default: defaultUrl,
-      validate: (value: string) => {
-        if (!value || !value.startsWith('http')) {
-          return 'Por favor, insira uma URL válida (deve começar com http ou https)';
-        }
-        return true;
-      },
-    });
-
-    return url;
-  }
-
   async selectMarcador(): Promise<string> {
     const marcador = await select({
       message: 'Selecione o marcador da seção:',
@@ -47,21 +32,6 @@ export class InputService {
     });
 
     return marcador;
-  }
-
-  async confirmTag(defaultTag: string): Promise<string> {
-    const tag = await input({
-      message: 'Tag da seção a ser adicionada:',
-      default: defaultTag,
-      validate: (value: string) => {
-        if (!value || value.trim().length === 0) {
-          return 'Por favor, insira uma tag válida';
-        }
-        return true;
-      },
-    });
-
-    return tag.trim();
   }
 
   async confirmExecution(processCount: number): Promise<boolean> {

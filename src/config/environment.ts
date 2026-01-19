@@ -1,5 +1,4 @@
 import * as dotenv from 'dotenv';
-import * as path from 'path';
 import { AppConfig } from '../models/config';
 
 dotenv.config();
@@ -33,7 +32,6 @@ export function loadConfig(): AppConfig {
       username: getEnvVar('SEI_USERNAME'),
       password: getEnvVar('SEI_PASSWORD'),
       orgao: getEnvVar('SEI_ORGAO'),
-      sectionTag: getEnvVar('SEI_SECTION_TAG'),
     },
     browser: {
       timeout: getEnvNumber('TIMEOUT_MS', 30000),
