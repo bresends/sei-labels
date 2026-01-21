@@ -71,7 +71,6 @@ export class AuthService {
       logger.debug('Aguardando navegação pós-login (15s timeout)');
       try {
         await Promise.race([
-          this.page.waitForNavigation({ timeout: 15000 }),
           this.page.waitForURL(url => !url.toString().includes('login'), { timeout: 15000 }),
           this.page.waitForLoadState('networkidle', { timeout: 15000 }),
         ]);

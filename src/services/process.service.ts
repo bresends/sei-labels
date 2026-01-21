@@ -1,8 +1,8 @@
-import { Page } from 'playwright';
-import { AppConfig, Selectors } from '../models/config';
-import { ProcessInfo } from '../models/process';
-import { logger } from './logger.service';
-import { BrowserService } from './browser.service';
+import { Page } from "playwright";
+import { AppConfig, Selectors } from "../models/config";
+import { ProcessInfo } from "../models/process";
+import { BrowserService } from "./browser.service";
+import { logger } from "./logger.service";
 
 export class ProcessService {
   private page: Page;
@@ -10,30 +10,42 @@ export class ProcessService {
   private selectors: Selectors;
   private browserService: BrowserService;
 
-  constructor(page: Page, config: AppConfig, selectors: Selectors, browserService: BrowserService) {
+  constructor(
+    page: Page,
+    config: AppConfig,
+    selectors: Selectors,
+    browserService: BrowserService,
+  ) {
     this.page = page;
     this.config = config;
     this.selectors = selectors;
     this.browserService = browserService;
   }
 
-  async catalogProcess(processNumber: string, marcador: string): Promise<ProcessInfo> {
+  async catalogProcess(
+    processNumber: string,
+    marcador: string,
+  ): Promise<ProcessInfo> {
     const processInfo: ProcessInfo = {
       number: processNumber,
-      status: 'pending',
+      status: "pending",
       timestamp: new Date(),
     };
 
     try {
-      logger.debug(`Catalogando processo ${processNumber} com marcador ${marcador}`);
+      logger.debug(
+        `Catalogando processo ${processNumber} com marcador ${marcador}`,
+      );
 
       await this.navigateToProcess(processNumber);
 
       const hasMarcador = await this.processHasMarcador(marcador);
       if (hasMarcador) {
-        processInfo.status = 'skipped';
-        processInfo.errorMessage = 'Marcador já existe no processo';
-        logger.info(`Processo ${processNumber}: marcador ${marcador} já existe`);
+        processInfo.status = "skipped";
+        processInfo.errorMessage = "Marcador já existe no processo";
+        logger.info(
+          `Processo ${processNumber}: marcador ${marcador} já existe`,
+        );
         return processInfo;
       }
 
@@ -41,29 +53,39 @@ export class ProcessService {
 
       if (success) {
         // Se o marcador for SGP, atribuir ao usuário brunoresende
-        if (marcador.toUpperCase() === 'SGP') {
-          logger.info(`Processo ${processNumber}: atribuindo ao usuário brunoresende`);
-          const assigned = await this.assignProcess('brunoresende');
+        if (marcador.toUpperCase() === "SGP") {
+          logger.info(
+            `Processo ${processNumber}: atribuindo ao usuário brunoresende`,
+          );
+          const assigned = await this.assignProcess("brunoresende");
 
           if (assigned) {
-            logger.success(`Processo ${processNumber}: atribuído com sucesso a brunoresende`);
+            logger.success(
+              `Processo ${processNumber}: atribuído com sucesso a brunoresende`,
+            );
           } else {
-            logger.warn(`Processo ${processNumber}: falha ao atribuir, mas marcador foi adicionado`);
+            logger.warn(
+              `Processo ${processNumber}: falha ao atribuir, mas marcador foi adicionado`,
+            );
           }
         }
 
-        processInfo.status = 'success';
-        logger.success(`Processo ${processNumber}: marcador ${marcador} adicionado com sucesso`);
+        processInfo.status = "success";
+        logger.success(
+          `Processo ${processNumber}: marcador ${marcador} adicionado com sucesso`,
+        );
       } else {
-        processInfo.status = 'failed';
-        processInfo.errorMessage = 'Falha ao adicionar marcador';
+        processInfo.status = "failed";
+        processInfo.errorMessage = "Falha ao adicionar marcador";
         logger.error(`Processo ${processNumber}: falha ao adicionar marcador`);
       }
-
     } catch (error) {
-      processInfo.status = 'failed';
-      processInfo.errorMessage = error instanceof Error ? error.message : String(error);
-      logger.error(`Processo ${processNumber}: erro durante catalogação`, { error });
+      processInfo.status = "failed";
+      processInfo.errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logger.error(`Processo ${processNumber}: erro durante catalogação`, {
+        error,
+      });
 
       await this.browserService.screenshot(`error-${processNumber}`);
     }
@@ -80,17 +102,20 @@ export class ProcessService {
 
       await this.page.fill(searchFieldSelector, processNumber);
 
-      await this.page.press(searchFieldSelector, 'Enter');
+      await this.page.press(searchFieldSelector, "Enter");
 
-      await this.page.waitForLoadState('networkidle');
+      await this.page.waitForLoadState("networkidle");
 
-      logger.debug('Aguardando frame ifrConteudoVisualizacao carregar');
+      logger.debug("Aguardando frame ifrConteudoVisualizacao carregar");
       // Esperar o frame ifrConteudoVisualizacao estar pronto
       try {
-        await this.page.frameLocator('iframe[name="ifrConteudoVisualizacao"]').locator('body').waitFor({ timeout: 5000 });
-        logger.debug('Frame ifrConteudoVisualizacao carregado');
+        await this.page
+          .frameLocator('iframe[name="ifrConteudoVisualizacao"]')
+          .locator("body")
+          .waitFor({ timeout: 5000 });
+        logger.debug("Frame ifrConteudoVisualizacao carregado");
       } catch (e) {
-        logger.warn('Timeout aguardando frame, mas continuando');
+        logger.warn("Timeout aguardando frame, mas continuando");
       }
 
       logger.debug(`Navegação para processo ${processNumber} concluída`);
@@ -102,17 +127,24 @@ export class ProcessService {
 
   async processHasMarcador(marcador: string): Promise<boolean> {
     try {
-      const marcadorElements = await this.page.locator(this.selectors.process.tagList).allTextContents();
-      const hasMarcador = marcadorElements.some(text => text.trim().toUpperCase() === marcador.toUpperCase());
+      const marcadorElements = await this.page
+        .locator(this.selectors.process.tagList)
+        .allTextContents();
+      const hasMarcador = marcadorElements.some(
+        (text) => text.trim().toUpperCase() === marcador.toUpperCase(),
+      );
 
       logger.debug(`Verificação de marcador existente: ${hasMarcador}`, {
         marcador,
-        existingMarcadores: marcadorElements
+        existingMarcadores: marcadorElements,
       });
 
       return hasMarcador;
     } catch (error) {
-      logger.warn('Erro ao verificar marcadores existentes, assumindo que marcador não existe', { error });
+      logger.warn(
+        "Erro ao verificar marcadores existentes, assumindo que marcador não existe",
+        { error },
+      );
       return false;
     }
   }
@@ -126,7 +158,7 @@ export class ProcessService {
       let linkClicked = false;
 
       // Buscar diretamente no frame ifrConteudoVisualizacao
-      const buttonFrame = this.page.frame({ name: 'ifrConteudoVisualizacao' });
+      const buttonFrame = this.page.frame({ name: "ifrConteudoVisualizacao" });
 
       if (buttonFrame) {
         try {
@@ -138,13 +170,15 @@ export class ProcessService {
             linkClicked = true;
           }
         } catch (e) {
-          logger.debug('Erro ao buscar botão, tentando fallback');
+          logger.debug("Erro ao buscar botão, tentando fallback");
         }
       }
 
       // Fallback: se não encontrou, busca em todos os frames
       if (!linkClicked) {
-        logger.debug('Botão não encontrado em ifrConteudoVisualizacao, buscando em todos os frames');
+        logger.debug(
+          "Botão não encontrado em ifrConteudoVisualizacao, buscando em todos os frames",
+        );
         const frames = this.page.frames();
 
         for (const frame of frames) {
@@ -163,67 +197,82 @@ export class ProcessService {
       }
 
       if (!linkClicked) {
-        await this.browserService.screenshot('gerenciar-marcador-not-found');
-        throw new Error('Botão "Gerenciar Marcador" não encontrado em nenhum frame');
+        await this.browserService.screenshot("gerenciar-marcador-not-found");
+        throw new Error(
+          'Botão "Gerenciar Marcador" não encontrado em nenhum frame',
+        );
       }
 
       // Formulário está no frame ifrVisualizacao
-      logger.debug('Aguardando formulário de marcador aparecer');
+      logger.debug("Aguardando formulário de marcador aparecer");
 
-      const formSelector = '#selMarcador';
-      const formFrame = this.page.frame({ name: 'ifrVisualizacao' });
+      const formSelector = "#selMarcador";
+      const formFrame = this.page.frame({ name: "ifrVisualizacao" });
 
       if (!formFrame) {
-        await this.browserService.screenshot('form-frame-not-found');
-        throw new Error('Frame ifrVisualizacao não encontrado');
+        await this.browserService.screenshot("form-frame-not-found");
+        throw new Error("Frame ifrVisualizacao não encontrado");
       }
 
       // Aguardar formulário aparecer no frame correto
       try {
         await formFrame.waitForSelector(formSelector, { timeout: 5000 });
-        logger.debug('Formulário de marcador encontrado');
+        logger.debug("Formulário de marcador encontrado");
       } catch (e) {
-        await this.browserService.screenshot('form-marcador-not-found');
-        throw new Error('Formulário de marcador não encontrado no frame ifrVisualizacao');
+        await this.browserService.screenshot("form-marcador-not-found");
+        throw new Error(
+          "Formulário de marcador não encontrado no frame ifrVisualizacao",
+        );
       }
 
-      logger.debug('Interagindo com dropdown de marcadores');
-      const dropdownSelector = '.dd-select';
+      logger.debug("Interagindo com dropdown de marcadores");
+      const dropdownSelector = ".dd-select";
 
-      await formFrame.waitForSelector(dropdownSelector, { state: 'visible', timeout: 3000 });
+      await formFrame.waitForSelector(dropdownSelector, {
+        state: "visible",
+        timeout: 3000,
+      });
       await formFrame.locator(dropdownSelector).click();
 
       const optionSelector = `.dd-option:has-text("${marcador}")`;
-      await formFrame.waitForSelector('.dd-option', { state: 'visible', timeout: 3000 });
+      await formFrame.waitForSelector(".dd-option", {
+        state: "visible",
+        timeout: 3000,
+      });
 
       const optionCount = await formFrame.locator(optionSelector).count();
       if (optionCount === 0) {
-        throw new Error(`Marcador "${marcador}" não encontrado nas opções do dropdown`);
+        throw new Error(
+          `Marcador "${marcador}" não encontrado nas opções do dropdown`,
+        );
       }
 
       await formFrame.locator(optionSelector).first().click();
 
-      logger.debug('Preenchendo campo de texto');
+      logger.debug("Preenchendo campo de texto");
       const textoSelector = this.selectors.process.textoMarcador;
 
       try {
         await formFrame.waitForSelector(textoSelector, { timeout: 2000 });
-        await formFrame.locator(textoSelector).fill('notion');
+        await formFrame.locator(textoSelector).fill("notion");
       } catch (e) {
-        logger.warn('Campo de texto não encontrado, continuando sem preencher');
+        logger.warn("Campo de texto não encontrado, continuando sem preencher");
       }
 
-      logger.debug('Salvando marcador');
-      const salvarButtonSelector = '#sbmSalvar';
+      logger.debug("Salvando marcador");
+      const salvarButtonSelector = "#sbmSalvar";
 
       try {
-        await formFrame.waitForSelector(salvarButtonSelector, { state: 'visible', timeout: 3000 });
+        await formFrame.waitForSelector(salvarButtonSelector, {
+          state: "visible",
+          timeout: 3000,
+        });
         await formFrame.locator(salvarButtonSelector).click();
       } catch (e) {
         // Fallback: tentar outros seletores
-        logger.debug('Tentando seletores alternativos para botão Salvar');
+        logger.debug("Tentando seletores alternativos para botão Salvar");
         const salvarButtonSelectors = [
-          '#btnSalvar',
+          "#btnSalvar",
           'button:has-text("Salvar")',
           'input[type="button"][value="Salvar"]',
           'a:has-text("Salvar")',
@@ -244,33 +293,39 @@ export class ProcessService {
         }
 
         if (!salvarClicked) {
-          await this.browserService.screenshot('salvar-button-not-found');
-          throw new Error('Botão Salvar não encontrado com nenhum seletor');
+          await this.browserService.screenshot("salvar-button-not-found");
+          throw new Error("Botão Salvar não encontrado com nenhum seletor");
         }
       }
 
-      await this.page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {
-        logger.debug('Timeout no networkidle, mas continuando');
-      });
+      await this.page
+        .waitForLoadState("networkidle", { timeout: 5000 })
+        .catch(() => {
+          logger.debug("Timeout no networkidle, mas continuando");
+        });
 
-      logger.debug('Verificando se marcador foi adicionado');
+      logger.debug("Verificando se marcador foi adicionado");
       const marcadorAdded = await this.processHasMarcador(marcador);
 
       if (marcadorAdded) {
         logger.success(`Marcador "${marcador}" adicionado com sucesso`);
         return true;
       } else {
-        logger.warn(`Não foi possível verificar se marcador "${marcador}" foi adicionado (mas operação foi concluída)`);
-        logger.info('Assumindo sucesso pois a operação de salvar foi completada');
+        logger.warn(
+          `Não foi possível verificar se marcador "${marcador}" foi adicionado (mas operação foi concluída)`,
+        );
+        logger.info(
+          "Assumindo sucesso pois a operação de salvar foi completada",
+        );
         return true;
       }
-
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const errorStack = error instanceof Error ? error.stack : '';
-      logger.error('Erro ao adicionar marcador', {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : "";
+      logger.error("Erro ao adicionar marcador", {
         error: errorMessage,
-        stack: errorStack
+        stack: errorStack,
       });
       await this.browserService.screenshot(`error-marcador-${Date.now()}`);
       return false;
@@ -283,10 +338,12 @@ export class ProcessService {
 
       // Botão "Atribuir Processo" está no frame ifrConteudoVisualizacao
       const buttonSelector = this.selectors.process.atribuirProcessoButton;
-      const buttonFrame = this.page.frame({ name: 'ifrConteudoVisualizacao' });
+      const buttonFrame = this.page.frame({ name: "ifrConteudoVisualizacao" });
 
       if (!buttonFrame) {
-        logger.error('Frame ifrConteudoVisualizacao não encontrado para atribuição');
+        logger.error(
+          "Frame ifrConteudoVisualizacao não encontrado para atribuição",
+        );
         return false;
       }
 
@@ -301,24 +358,28 @@ export class ProcessService {
       logger.debug('Botão "Atribuir Processo" clicado');
 
       // Formulário aparece no frame ifrVisualizacao
-      const formFrame = this.page.frame({ name: 'ifrVisualizacao' });
+      const formFrame = this.page.frame({ name: "ifrVisualizacao" });
 
       if (!formFrame) {
-        logger.error('Frame ifrVisualizacao não encontrado');
+        logger.error("Frame ifrVisualizacao não encontrado");
         return false;
       }
 
       // Aguardar o dropdown de atribuição aparecer
       const selectSelector = this.selectors.process.atribuicaoSelect;
       await formFrame.waitForSelector(selectSelector, { timeout: 5000 });
-      logger.debug('Dropdown de atribuição encontrado');
+      logger.debug("Dropdown de atribuição encontrado");
 
       // Encontrar a opção que contém o username e pegar seu value
-      const optionLocator = formFrame.locator(`${selectSelector} option:has-text("${username}")`);
-      const optionValue = await optionLocator.getAttribute('value');
+      const optionLocator = formFrame.locator(
+        `${selectSelector} option:has-text("${username}")`,
+      );
+      const optionValue = await optionLocator.getAttribute("value");
 
       if (!optionValue) {
-        throw new Error(`Usuário ${username} não encontrado no dropdown de atribuição`);
+        throw new Error(
+          `Usuário ${username} não encontrado no dropdown de atribuição`,
+        );
       }
 
       // Selecionar o usuário pelo value
@@ -327,21 +388,28 @@ export class ProcessService {
 
       // Clicar no botão Salvar
       const saveButtonSelector = this.selectors.process.atribuicaoSalvarButton;
-      await formFrame.waitForSelector(saveButtonSelector, { state: 'visible', timeout: 3000 });
+      await formFrame.waitForSelector(saveButtonSelector, {
+        state: "visible",
+        timeout: 3000,
+      });
       await formFrame.click(saveButtonSelector);
-      logger.debug('Botão Salvar clicado');
+      logger.debug("Botão Salvar clicado");
 
       // Aguardar a página recarregar
-      await this.page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {
-        logger.debug('Timeout no networkidle após atribuição, mas continuando');
-      });
+      await this.page
+        .waitForLoadState("networkidle", { timeout: 5000 })
+        .catch(() => {
+          logger.debug(
+            "Timeout no networkidle após atribuição, mas continuando",
+          );
+        });
 
-      logger.success('Processo atribuído com sucesso');
+      logger.success("Processo atribuído com sucesso");
       return true;
-
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      logger.error('Erro ao atribuir processo', { error: errorMessage });
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logger.error("Erro ao atribuir processo", { error: errorMessage });
       await this.browserService.screenshot(`error-atribuir-${Date.now()}`);
       return false;
     }
